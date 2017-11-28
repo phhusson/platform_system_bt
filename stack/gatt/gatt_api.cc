@@ -475,7 +475,7 @@ tGATT_STATUS GATTS_HandleValueIndication(uint16_t conn_id, uint16_t attr_handle,
   tGATT_REG* p_reg = gatt_get_regcb(gatt_if);
   tGATT_TCB* p_tcb = gatt_get_tcb_by_idx(tcb_idx);
 
-  LOG(INFO) << __func__;
+  VLOG(1) << __func__;
   if ((p_reg == NULL) || (p_tcb == NULL)) {
     LOG(ERROR) << __func__ << ": Unknown  conn_id: " << +conn_id;
     return (tGATT_STATUS)GATT_INVALID_CONN_ID;
@@ -498,8 +498,9 @@ tGATT_STATUS GATTS_HandleValueIndication(uint16_t conn_id, uint16_t attr_handle,
       cmd_status = GATT_NO_RESOURCES;
     }
   } else {
-    p_msg = attp_build_sr_msg(*p_tcb, GATT_HANDLE_VALUE_IND,
-                              (tGATT_SR_MSG*)&indication);
+    tGATT_SR_MSG gatt_sr_msg;
+    gatt_sr_msg.attr_value = indication;
+    p_msg = attp_build_sr_msg(*p_tcb, GATT_HANDLE_VALUE_IND, &gatt_sr_msg);
     if (p_msg != NULL) {
       cmd_status = attp_send_sr_msg(*p_tcb, p_msg);
 
@@ -536,7 +537,7 @@ tGATT_STATUS GATTS_HandleValueNotification(uint16_t conn_id,
   tGATT_REG* p_reg = gatt_get_regcb(gatt_if);
   tGATT_TCB* p_tcb = gatt_get_tcb_by_idx(tcb_idx);
 
-  LOG(INFO) << __func__;
+  VLOG(1) << __func__;
 
   if ((p_reg == NULL) || (p_tcb == NULL)) {
     LOG(ERROR) << __func__ << "Unknown  conn_id: " << conn_id;
@@ -553,8 +554,10 @@ tGATT_STATUS GATTS_HandleValueNotification(uint16_t conn_id,
   notif.auth_req = GATT_AUTH_REQ_NONE;
 
   tGATT_STATUS cmd_sent;
+  tGATT_SR_MSG gatt_sr_msg;
+  gatt_sr_msg.attr_value = notif;
   BT_HDR* p_buf =
-      attp_build_sr_msg(*p_tcb, GATT_HANDLE_VALUE_NOTIF, (tGATT_SR_MSG*)&notif);
+      attp_build_sr_msg(*p_tcb, GATT_HANDLE_VALUE_NOTIF, &gatt_sr_msg);
   if (p_buf != NULL) {
     cmd_sent = attp_send_sr_msg(*p_tcb, p_buf);
   } else
@@ -584,9 +587,9 @@ tGATT_STATUS GATTS_SendRsp(uint16_t conn_id, uint32_t trans_id,
   tGATT_REG* p_reg = gatt_get_regcb(gatt_if);
   tGATT_TCB* p_tcb = gatt_get_tcb_by_idx(tcb_idx);
 
-  LOG(INFO) << __func__
-            << StringPrintf(": conn_id: %u  trans_id: %u  Status: 0x%04x",
-                            conn_id, trans_id, status);
+  VLOG(1) << __func__
+          << StringPrintf(": conn_id: %u  trans_id: %u  Status: 0x%04x",
+                          conn_id, trans_id, status);
 
   if ((p_reg == NULL) || (p_tcb == NULL)) {
     LOG(ERROR) << StringPrintf("Unknown  conn_id: %u ", conn_id);
@@ -634,7 +637,7 @@ tGATT_STATUS GATTC_ConfigureMTU(uint16_t conn_id, uint16_t mtu) {
   tGATT_TCB* p_tcb = gatt_get_tcb_by_idx(tcb_idx);
   tGATT_REG* p_reg = gatt_get_regcb(gatt_if);
 
-  LOG(INFO) << __func__ << StringPrintf("conn_id=%d mtu=%d", conn_id, mtu);
+  VLOG(1) << __func__ << StringPrintf("conn_id=%d mtu=%d", conn_id, mtu);
 
   if ((p_tcb == NULL) || (p_reg == NULL) || (mtu < GATT_DEF_BLE_MTU_SIZE) ||
       (mtu > GATT_MAX_MTU_SIZE)) {
@@ -656,8 +659,9 @@ tGATT_STATUS GATTC_ConfigureMTU(uint16_t conn_id, uint16_t mtu) {
 
   p_clcb->p_tcb->payload_size = mtu;
   p_clcb->operation = GATTC_OPTYPE_CONFIG;
-  return attp_send_cl_msg(*p_clcb->p_tcb, p_clcb, GATT_REQ_MTU,
-                          (tGATT_CL_MSG*)&mtu);
+  tGATT_CL_MSG gatt_cl_msg;
+  gatt_cl_msg.mtu = mtu;
+  return attp_send_cl_msg(*p_clcb->p_tcb, p_clcb, GATT_REQ_MTU, &gatt_cl_msg);
 }
 
 
@@ -738,7 +742,7 @@ tGATT_STATUS GATTC_Read(uint16_t conn_id, tGATT_READ_TYPE type,
   tGATT_TCB* p_tcb = gatt_get_tcb_by_idx(tcb_idx);
   tGATT_REG* p_reg = gatt_get_regcb(gatt_if);
 
-  LOG(INFO) << __func__ << StringPrintf(" conn_id=%d type=%d", conn_id, type);
+  VLOG(1) << __func__ << StringPrintf(" conn_id=%d type=%d", conn_id, type);
 
   if ((p_tcb == NULL) || (p_reg == NULL) || (p_read == NULL) ||
       ((type >= GATT_READ_MAX) || (type == 0))) {
@@ -870,8 +874,8 @@ tGATT_STATUS GATTC_ExecuteWrite(uint16_t conn_id, bool is_execute) {
   tGATT_TCB* p_tcb = gatt_get_tcb_by_idx(tcb_idx);
   tGATT_REG* p_reg = gatt_get_regcb(gatt_if);
 
-  LOG(INFO) << __func__
-            << StringPrintf(": conn_id=%d is_execute=%d", conn_id, is_execute);
+  VLOG(1) << __func__
+          << StringPrintf(": conn_id=%d is_execute=%d", conn_id, is_execute);
 
   if ((p_tcb == NULL) || (p_reg == NULL)) {
     LOG(ERROR) << StringPrintf(" Illegal param: conn_id %d", conn_id);
@@ -907,8 +911,8 @@ tGATT_STATUS GATTC_ExecuteWrite(uint16_t conn_id, bool is_execute) {
  *
  ******************************************************************************/
 tGATT_STATUS GATTC_SendHandleValueConfirm(uint16_t conn_id, uint16_t handle) {
-  LOG(INFO) << __func__
-            << StringPrintf(" conn_id=%d handle=0x%x", conn_id, handle);
+  VLOG(1) << __func__
+          << StringPrintf(" conn_id=%d handle=0x%x", conn_id, handle);
 
   tGATT_TCB* p_tcb = gatt_get_tcb_by_idx(GATT_GET_TCB_IDX(conn_id));
   if (!p_tcb) {
@@ -926,8 +930,10 @@ tGATT_STATUS GATTC_SendHandleValueConfirm(uint16_t conn_id, uint16_t handle) {
 
   VLOG(1) << "notif_count= " << p_tcb->ind_count;
   /* send confirmation now */
-  tGATT_STATUS ret = attp_send_cl_msg(*p_tcb, nullptr, GATT_HANDLE_VALUE_CONF,
-                                      (tGATT_CL_MSG*)&handle);
+  tGATT_CL_MSG gatt_cl_msg;
+  gatt_cl_msg.handle = handle;
+  tGATT_STATUS ret =
+      attp_send_cl_msg(*p_tcb, nullptr, GATT_HANDLE_VALUE_CONF, &gatt_cl_msg);
 
   p_tcb->ind_count = 0;
 
@@ -971,9 +977,9 @@ void GATT_SetIdleTimeout(const RawAddress& bd_addr, uint16_t idle_tout,
     }
   }
 
-  LOG(INFO) << __func__
-            << StringPrintf(" idle_tout=%d status=%d(1-OK 0-not performed)",
-                            idle_tout, status);
+  VLOG(1) << __func__
+          << StringPrintf(" idle_tout=%d status=%d(1-OK 0-not performed)",
+                          idle_tout, status);
 }
 
 /*******************************************************************************
@@ -1040,7 +1046,7 @@ tGATT_IF GATT_Register(tBT_UUID* p_app_uuid128, tGATT_CBACK* p_cb_info) {
  *
  ******************************************************************************/
 void GATT_Deregister(tGATT_IF gatt_if) {
-  LOG(INFO) << __func__ << " gatt_if=" << +gatt_if;
+  VLOG(1) << __func__ << " gatt_if=" << +gatt_if;
 
   tGATT_REG* p_reg = gatt_get_regcb(gatt_if);
   /* Index 0 is GAP and is never deregistered */
@@ -1054,9 +1060,11 @@ void GATT_Deregister(tGATT_IF gatt_if) {
     other application
     deregisteration need to bed performed in an orderly fashion
     no check for now */
-  for (auto& el : *gatt_cb.srv_list_info) {
-    if (el.gatt_if == gatt_if) {
-      GATTS_StopService(el.s_hdl);
+  for (auto it = gatt_cb.srv_list_info->begin(); it != gatt_cb.srv_list_info->end(); ) {
+    if (it->gatt_if == gatt_if) {
+      GATTS_StopService(it++->s_hdl);
+    } else {
+      ++it;
     }
   }
 
@@ -1112,7 +1120,7 @@ void GATT_StartIf(tGATT_IF gatt_if) {
   uint16_t conn_id;
   tGATT_TRANSPORT transport;
 
-  LOG(INFO) << __func__ << " gatt_if=" << gatt_if;
+  VLOG(1) << __func__ << " gatt_if=" << gatt_if;
   p_reg = gatt_get_regcb(gatt_if);
   if (p_reg != NULL) {
     start_idx = 0;
@@ -1293,7 +1301,7 @@ bool GATT_GetConnectionInfor(uint16_t conn_id, tGATT_IF* p_gatt_if,
   tGATT_TCB* p_tcb = gatt_get_tcb_by_idx(tcb_idx);
   bool status = false;
 
-  LOG(INFO) << __func__ << " conn_id=" << +conn_id;
+  VLOG(1) << __func__ << " conn_id=" << +conn_id;
 
   if (p_tcb && p_reg) {
     bd_addr = p_tcb->peer_bda;
@@ -1330,6 +1338,6 @@ bool GATT_GetConnIdIfConnected(tGATT_IF gatt_if, const RawAddress& bd_addr,
     status = true;
   }
 
-  LOG(INFO) << __func__ << " status= " << +status;
+  VLOG(1) << __func__ << " status= " << +status;
   return status;
 }

@@ -34,7 +34,6 @@
 /*****************************************************************************
  *  Global data
  ****************************************************************************/
-extern fixed_queue_t* btu_general_alarm_queue;
 
 #define AVRC_MAX_RCV_CTRL_EVT AVCT_BROWSE_UNCONG_IND_EVT
 
@@ -205,8 +204,8 @@ void avrc_start_cmd_timer(uint8_t handle, uint8_t label, uint8_t msg_mask) {
   AVRC_TRACE_DEBUG("AVRC: starting timer (handle=0x%02x, label=0x%02x)", handle,
                    label);
 
-  alarm_set_on_queue(avrc_cb.ccb_int[handle].tle, AVRC_CMD_TOUT_MS,
-                     avrc_process_timeout, param, btu_general_alarm_queue);
+  alarm_set_on_mloop(avrc_cb.ccb_int[handle].tle, AVRC_CMD_TOUT_MS,
+                     avrc_process_timeout, param);
 }
 
 /******************************************************************************
@@ -595,7 +594,10 @@ static uint8_t avrc_proc_far_msg(uint8_t handle, uint8_t label, uint8_t cr,
     }
     avrc_cmd.status = AVRC_STS_NO_ERROR;
     avrc_cmd.target_pdu = p_rcb->rasm_pdu;
-    status = AVRC_BldCommand((tAVRC_COMMAND*)&avrc_cmd, &p_cmd);
+
+    tAVRC_COMMAND avrc_command;
+    avrc_command.continu = avrc_cmd;
+    status = AVRC_BldCommand(&avrc_command, &p_cmd);
     if (status == AVRC_STS_NO_ERROR) {
       AVRC_MsgReq(handle, (uint8_t)(label), AVRC_CMD_CTRL, p_cmd);
     }

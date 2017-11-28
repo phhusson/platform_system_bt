@@ -25,8 +25,6 @@
 #include "stack/smp/smp_int.h"
 #include "utils/include/bt_utils.h"
 
-extern fixed_queue_t* btu_general_alarm_queue;
-
 #define SMP_KEY_DIST_TYPE_MAX 4
 
 const tSMP_ACT smp_distribute_act[] = {smp_generate_ltk, smp_send_id_info,
@@ -174,6 +172,10 @@ void smp_send_app_cback(tSMP_CB* p_cb, tSMP_INT_DATA* p_data) {
             p_cb->loc_auth_req &= ~SMP_KP_SUPPORT_BIT;
             p_cb->local_i_key &= ~SMP_SEC_KEY_TYPE_LK;
             p_cb->local_r_key &= ~SMP_SEC_KEY_TYPE_LK;
+          }
+
+          if (lmp_version_below(p_cb->pairing_bda, HCI_PROTO_VERSION_5_0)) {
+            p_cb->loc_auth_req &= ~SMP_H7_SUPPORT_BIT;
           }
 
           SMP_TRACE_WARNING(
@@ -1174,9 +1176,9 @@ void smp_key_distribution(tSMP_CB* p_cb, tSMP_INT_DATA* p_data) {
          */
         if (!alarm_is_scheduled(p_cb->delayed_auth_timer_ent)) {
           SMP_TRACE_DEBUG("%s delaying auth complete.", __func__);
-          alarm_set_on_queue(
-              p_cb->delayed_auth_timer_ent, SMP_DELAYED_AUTH_TIMEOUT_MS,
-              smp_delayed_auth_complete_timeout, NULL, btu_general_alarm_queue);
+          alarm_set_on_mloop(p_cb->delayed_auth_timer_ent,
+                             SMP_DELAYED_AUTH_TIMEOUT_MS,
+                             smp_delayed_auth_complete_timeout, NULL);
         }
       } else {
         p_cb->wait_for_authorization_complete = true;

@@ -50,8 +50,6 @@
 #include "l2c_int.h"
 #include "osi/include/osi.h"
 
-extern fixed_queue_t* btu_general_alarm_queue;
-
 static void btm_read_remote_features(uint16_t handle);
 static void btm_read_remote_ext_features(uint16_t handle, uint8_t page_number);
 static void btm_process_remote_ext_features(tACL_CONN* p_acl_cb,
@@ -481,7 +479,9 @@ void btm_acl_update_busy_level(tBTM_BLI_EVENT event) {
     evt.busy_level = busy_level;
     btm_cb.busy_level = busy_level;
     if (btm_cb.p_bl_changed_cb && (btm_cb.bl_evt_mask & BTM_BL_UPDATE_MASK)) {
-      (*btm_cb.p_bl_changed_cb)((tBTM_BL_EVENT_DATA*)&evt);
+      tBTM_BL_EVENT_DATA btm_bl_event_data;
+      btm_bl_event_data.update = evt;
+      (*btm_cb.p_bl_changed_cb)(&btm_bl_event_data);
     }
   }
 }
@@ -685,7 +685,9 @@ void btm_acl_encrypt_change(uint16_t handle, uint8_t status,
       evt.new_role = btm_cb.devcb.switch_role_ref_data.role;
       evt.p_bda = &btm_cb.devcb.switch_role_ref_data.remote_bd_addr;
       evt.hci_status = btm_cb.devcb.switch_role_ref_data.hci_status;
-      (*btm_cb.p_bl_changed_cb)((tBTM_BL_EVENT_DATA*)&evt);
+      tBTM_BL_EVENT_DATA btm_bl_event_data;
+      btm_bl_event_data.role_chg = evt;
+      (*btm_cb.p_bl_changed_cb)(&btm_bl_event_data);
 
       BTM_TRACE_DEBUG(
           "Role Switch Event: new_role 0x%02x, HCI Status 0x%02x, rs_st:%d",
@@ -1250,8 +1252,9 @@ tBTM_STATUS BTM_SetLinkSuperTout(const RawAddress& remote_bda,
       btsnd_hcic_write_link_super_tout(LOCAL_BR_EDR_CONTROLLER_ID,
                                        p->hci_handle, timeout);
       return (BTM_CMD_STARTED);
-    } else
+    } else {
       return (BTM_SUCCESS);
+    }
   }
 
   /* If here, no BD Addr found */
@@ -1489,7 +1492,9 @@ void btm_acl_role_changed(uint8_t hci_status, const RawAddress* bd_addr,
     evt.new_role = new_role;
     evt.p_bda = p_bda;
     evt.hci_status = hci_status;
-    (*btm_cb.p_bl_changed_cb)((tBTM_BL_EVENT_DATA*)&evt);
+    tBTM_BL_EVENT_DATA btm_bl_event_data;
+    btm_bl_event_data.role_chg = evt;
+    (*btm_cb.p_bl_changed_cb)(&btm_bl_event_data);
   }
 
   BTM_TRACE_DEBUG(
@@ -1577,8 +1582,9 @@ bool BTM_FreeSCN(uint8_t scn) {
   if (scn <= BTM_MAX_SCN) {
     btm_cb.btm_scn[scn - 1] = false;
     return (true);
-  } else
+  } else {
     return (false); /* Illegal SCN passed in */
+  }
 }
 
 /*******************************************************************************
@@ -1814,8 +1820,8 @@ tBTM_STATUS BTM_SetQoS(const RawAddress& bd, FLOW_SPEC* p_flow,
   p = btm_bda_to_acl(bd, BT_TRANSPORT_BR_EDR);
   if (p != NULL) {
     btm_cb.devcb.p_qos_setup_cmpl_cb = p_cb;
-    alarm_set_on_queue(btm_cb.devcb.qos_setup_timer, BTM_DEV_REPLY_TIMEOUT_MS,
-                       btm_qos_setup_timeout, NULL, btu_general_alarm_queue);
+    alarm_set_on_mloop(btm_cb.devcb.qos_setup_timer, BTM_DEV_REPLY_TIMEOUT_MS,
+                       btm_qos_setup_timeout, NULL);
 
     btsnd_hcic_qos_setup(p->hci_handle, p_flow->qos_flags, p_flow->service_type,
                          p_flow->token_rate, p_flow->peak_bandwidth,
@@ -1887,7 +1893,7 @@ void btm_qos_setup_complete(uint8_t status, uint16_t handle,
  * Description      This function is called to read the link policy settings.
  *                  The address of link policy results are returned in the
  *                  callback.
- *                  (tBTM_RSSI_RESULTS)
+ *                  (tBTM_RSSI_RESULT)
  *
  * Returns          BTM_CMD_STARTED if successfully initiated or error code
  *
@@ -1907,8 +1913,8 @@ tBTM_STATUS BTM_ReadRSSI(const RawAddress& remote_bda, tBTM_CMPL_CB* p_cb) {
   p = btm_bda_to_acl(remote_bda, transport);
   if (p != (tACL_CONN*)NULL) {
     btm_cb.devcb.p_rssi_cmpl_cb = p_cb;
-    alarm_set_on_queue(btm_cb.devcb.read_rssi_timer, BTM_DEV_REPLY_TIMEOUT_MS,
-                       btm_read_rssi_timeout, NULL, btu_general_alarm_queue);
+    alarm_set_on_mloop(btm_cb.devcb.read_rssi_timer, BTM_DEV_REPLY_TIMEOUT_MS,
+                       btm_read_rssi_timeout, NULL);
 
     btsnd_hcic_read_rssi(p->hci_handle);
     return (BTM_CMD_STARTED);
@@ -1945,10 +1951,9 @@ tBTM_STATUS BTM_ReadFailedContactCounter(const RawAddress& remote_bda,
   p = btm_bda_to_acl(remote_bda, transport);
   if (p != (tACL_CONN*)NULL) {
     btm_cb.devcb.p_failed_contact_counter_cmpl_cb = p_cb;
-    alarm_set_on_queue(btm_cb.devcb.read_failed_contact_counter_timer,
+    alarm_set_on_mloop(btm_cb.devcb.read_failed_contact_counter_timer,
                        BTM_DEV_REPLY_TIMEOUT_MS,
-                       btm_read_failed_contact_counter_timeout, NULL,
-                       btu_general_alarm_queue);
+                       btm_read_failed_contact_counter_timeout, NULL);
 
     btsnd_hcic_read_failed_contact_counter(p->hci_handle);
     return (BTM_CMD_STARTED);
@@ -1960,11 +1965,47 @@ tBTM_STATUS BTM_ReadFailedContactCounter(const RawAddress& remote_bda,
 
 /*******************************************************************************
  *
+ * Function         BTM_ReadAutomaticFlushTimeout
+ *
+ * Description      This function is called to read the automatic flush timeout.
+ *                  The result is returned in the callback.
+ *                  (tBTM_AUTOMATIC_FLUSH_TIMEOUT_RESULT)
+ *
+ * Returns          BTM_CMD_STARTED if successfully initiated or error code
+ *
+ ******************************************************************************/
+tBTM_STATUS BTM_ReadAutomaticFlushTimeout(const RawAddress& remote_bda,
+                                          tBTM_CMPL_CB* p_cb) {
+  tACL_CONN* p;
+  tBT_TRANSPORT transport = BT_TRANSPORT_BR_EDR;
+  tBT_DEVICE_TYPE dev_type;
+  tBLE_ADDR_TYPE addr_type;
+
+  /* If someone already waiting on the result, do not allow another */
+  if (btm_cb.devcb.p_automatic_flush_timeout_cmpl_cb) return (BTM_BUSY);
+
+  BTM_ReadDevInfo(remote_bda, &dev_type, &addr_type);
+  if (dev_type == BT_DEVICE_TYPE_BLE) transport = BT_TRANSPORT_LE;
+
+  p = btm_bda_to_acl(remote_bda, transport);
+  if (!p) return BTM_UNKNOWN_ADDR;
+
+  btm_cb.devcb.p_automatic_flush_timeout_cmpl_cb = p_cb;
+  alarm_set_on_mloop(btm_cb.devcb.read_automatic_flush_timeout_timer,
+                     BTM_DEV_REPLY_TIMEOUT_MS,
+                     btm_read_automatic_flush_timeout_timeout, nullptr);
+
+  btsnd_hcic_read_automatic_flush_timeout(p->hci_handle);
+  return BTM_CMD_STARTED;
+}
+
+/*******************************************************************************
+ *
  * Function         BTM_ReadLinkQuality
  *
  * Description      This function is called to read the link qulaity.
  *                  The value of the link quality is returned in the callback.
- *                  (tBTM_LINK_QUALITY_RESULTS)
+ *                  (tBTM_LINK_QUALITY_RESULT)
  *
  * Returns          BTM_CMD_STARTED if successfully initiated or error code
  *
@@ -1979,9 +2020,9 @@ tBTM_STATUS BTM_ReadLinkQuality(const RawAddress& remote_bda,
   tACL_CONN* p = btm_bda_to_acl(remote_bda, BT_TRANSPORT_BR_EDR);
   if (p != (tACL_CONN*)NULL) {
     btm_cb.devcb.p_link_qual_cmpl_cb = p_cb;
-    alarm_set_on_queue(btm_cb.devcb.read_link_quality_timer,
+    alarm_set_on_mloop(btm_cb.devcb.read_link_quality_timer,
                        BTM_DEV_REPLY_TIMEOUT_MS, btm_read_link_quality_timeout,
-                       NULL, btu_general_alarm_queue);
+                       NULL);
 
     btsnd_hcic_get_link_quality(p->hci_handle);
     return (BTM_CMD_STARTED);
@@ -1998,7 +2039,7 @@ tBTM_STATUS BTM_ReadLinkQuality(const RawAddress& remote_bda,
  * Description      This function is called to read the current
  *                  TX power of the connection. The tx power level results
  *                  are returned in the callback.
- *                  (tBTM_RSSI_RESULTS)
+ *                  (tBTM_RSSI_RESULT)
  *
  * Returns          BTM_CMD_STARTED if successfully initiated or error code
  *
@@ -2017,9 +2058,9 @@ tBTM_STATUS BTM_ReadTxPower(const RawAddress& remote_bda,
   p = btm_bda_to_acl(remote_bda, transport);
   if (p != (tACL_CONN*)NULL) {
     btm_cb.devcb.p_tx_power_cmpl_cb = p_cb;
-    alarm_set_on_queue(btm_cb.devcb.read_tx_power_timer,
+    alarm_set_on_mloop(btm_cb.devcb.read_tx_power_timer,
                        BTM_DEV_REPLY_TIMEOUT_MS, btm_read_tx_power_timeout,
-                       NULL, btu_general_alarm_queue);
+                       NULL);
 
     if (p->transport == BT_TRANSPORT_LE) {
       btm_cb.devcb.read_tx_pwr_addr = remote_bda;
@@ -2062,10 +2103,8 @@ void btm_read_tx_power_timeout(UNUSED_ATTR void* data) {
  ******************************************************************************/
 void btm_read_tx_power_complete(uint8_t* p, bool is_ble) {
   tBTM_CMPL_CB* p_cb = btm_cb.devcb.p_tx_power_cmpl_cb;
-  tBTM_TX_POWER_RESULTS results;
-  uint16_t handle;
+  tBTM_TX_POWER_RESULT result;
   tACL_CONN* p_acl_cb = &btm_cb.acl_db[0];
-  uint16_t index;
 
   BTM_TRACE_DEBUG("%s", __func__);
   alarm_cancel(btm_cb.devcb.read_tx_power_timer);
@@ -2073,32 +2112,34 @@ void btm_read_tx_power_complete(uint8_t* p, bool is_ble) {
 
   /* If there was a registered callback, call it */
   if (p_cb) {
-    STREAM_TO_UINT8(results.hci_status, p);
+    STREAM_TO_UINT8(result.hci_status, p);
 
-    if (results.hci_status == HCI_SUCCESS) {
-      results.status = BTM_SUCCESS;
+    if (result.hci_status == HCI_SUCCESS) {
+      result.status = BTM_SUCCESS;
 
       if (!is_ble) {
+        uint16_t handle;
         STREAM_TO_UINT16(handle, p);
-        STREAM_TO_UINT8(results.tx_power, p);
+        STREAM_TO_UINT8(result.tx_power, p);
 
         /* Search through the list of active channels for the correct BD Addr */
-        for (index = 0; index < MAX_L2CAP_LINKS; index++, p_acl_cb++) {
+        for (uint16_t index = 0; index < MAX_L2CAP_LINKS; index++, p_acl_cb++) {
           if ((p_acl_cb->in_use) && (handle == p_acl_cb->hci_handle)) {
-            results.rem_bda = p_acl_cb->remote_addr;
+            result.rem_bda = p_acl_cb->remote_addr;
             break;
           }
         }
       } else {
-        STREAM_TO_UINT8(results.tx_power, p);
-        results.rem_bda = btm_cb.devcb.read_tx_pwr_addr;
+        STREAM_TO_UINT8(result.tx_power, p);
+        result.rem_bda = btm_cb.devcb.read_tx_pwr_addr;
       }
       BTM_TRACE_DEBUG("BTM TX power Complete: tx_power %d, hci status 0x%02x",
-                      results.tx_power, results.hci_status);
-    } else
-      results.status = BTM_ERR_PROCESSING;
+                      result.tx_power, result.hci_status);
+    } else {
+      result.status = BTM_ERR_PROCESSING;
+    }
 
-    (*p_cb)(&results);
+    (*p_cb)(&result);
   }
 }
 
@@ -2112,12 +2153,11 @@ void btm_read_tx_power_complete(uint8_t* p, bool is_ble) {
  *
  ******************************************************************************/
 void btm_read_rssi_timeout(UNUSED_ATTR void* data) {
-  tBTM_RSSI_RESULTS  results;
+  tBTM_RSSI_RESULT result;
   tBTM_CMPL_CB* p_cb = btm_cb.devcb.p_rssi_cmpl_cb;
   btm_cb.devcb.p_rssi_cmpl_cb = NULL;
-  results.status = BTM_DEVICE_TIMEOUT;
-  if (p_cb)
-      (*p_cb)(&results);
+  result.status = BTM_DEVICE_TIMEOUT;
+  if (p_cb) (*p_cb)(&result);
 }
 
 /*******************************************************************************
@@ -2132,10 +2172,8 @@ void btm_read_rssi_timeout(UNUSED_ATTR void* data) {
  ******************************************************************************/
 void btm_read_rssi_complete(uint8_t* p) {
   tBTM_CMPL_CB* p_cb = btm_cb.devcb.p_rssi_cmpl_cb;
-  tBTM_RSSI_RESULTS results;
-  uint16_t handle;
+  tBTM_RSSI_RESULT result;
   tACL_CONN* p_acl_cb = &btm_cb.acl_db[0];
-  uint16_t index;
 
   BTM_TRACE_DEBUG("%s", __func__);
   alarm_cancel(btm_cb.devcb.read_rssi_timer);
@@ -2143,28 +2181,30 @@ void btm_read_rssi_complete(uint8_t* p) {
 
   /* If there was a registered callback, call it */
   if (p_cb) {
-    STREAM_TO_UINT8(results.hci_status, p);
+    STREAM_TO_UINT8(result.hci_status, p);
 
-    if (results.hci_status == HCI_SUCCESS) {
-      results.status = BTM_SUCCESS;
+    if (result.hci_status == HCI_SUCCESS) {
+      uint16_t handle;
+      result.status = BTM_SUCCESS;
 
       STREAM_TO_UINT16(handle, p);
 
-      STREAM_TO_UINT8(results.rssi, p);
+      STREAM_TO_UINT8(result.rssi, p);
       BTM_TRACE_DEBUG("BTM RSSI Complete: rssi %d, hci status 0x%02x",
-                      results.rssi, results.hci_status);
+                      result.rssi, result.hci_status);
 
       /* Search through the list of active channels for the correct BD Addr */
-      for (index = 0; index < MAX_L2CAP_LINKS; index++, p_acl_cb++) {
+      for (uint16_t index = 0; index < MAX_L2CAP_LINKS; index++, p_acl_cb++) {
         if ((p_acl_cb->in_use) && (handle == p_acl_cb->hci_handle)) {
-          results.rem_bda = p_acl_cb->remote_addr;
+          result.rem_bda = p_acl_cb->remote_addr;
           break;
         }
       }
-    } else
-      results.status = BTM_ERR_PROCESSING;
+    } else {
+      result.status = BTM_ERR_PROCESSING;
+    }
 
-    (*p_cb)(&results);
+    (*p_cb)(&result);
   }
 }
 
@@ -2237,6 +2277,73 @@ void btm_read_failed_contact_counter_complete(uint8_t* p) {
 
 /*******************************************************************************
  *
+ * Function         btm_read_automatic_flush_timeout_timeout
+ *
+ * Description      Callback when reading the automatic flush timeout times out.
+ *
+ * Returns          void
+ *
+ ******************************************************************************/
+void btm_read_automatic_flush_timeout_timeout(UNUSED_ATTR void* data) {
+  tBTM_AUTOMATIC_FLUSH_TIMEOUT_RESULT result;
+  tBTM_CMPL_CB* p_cb = btm_cb.devcb.p_automatic_flush_timeout_cmpl_cb;
+  btm_cb.devcb.p_automatic_flush_timeout_cmpl_cb = nullptr;
+  result.status = BTM_DEVICE_TIMEOUT;
+  if (p_cb) (*p_cb)(&result);
+}
+
+/*******************************************************************************
+ *
+ * Function         btm_read_automatic_flush_timeout_complete
+ *
+ * Description      This function is called when the command complete message
+ *                  is received from the HCI for the read automatic flush
+ *                  timeout request.
+ *
+ * Returns          void
+ *
+ ******************************************************************************/
+void btm_read_automatic_flush_timeout_complete(uint8_t* p) {
+  tBTM_CMPL_CB* p_cb = btm_cb.devcb.p_automatic_flush_timeout_cmpl_cb;
+  tBTM_AUTOMATIC_FLUSH_TIMEOUT_RESULT result;
+  tACL_CONN* p_acl_cb = &btm_cb.acl_db[0];
+
+  BTM_TRACE_DEBUG("%s", __func__);
+  alarm_cancel(btm_cb.devcb.read_automatic_flush_timeout_timer);
+  btm_cb.devcb.p_automatic_flush_timeout_cmpl_cb = nullptr;
+
+  /* If there was a registered callback, call it */
+  if (p_cb) {
+    uint16_t handle;
+    STREAM_TO_UINT8(result.hci_status, p);
+
+    if (result.hci_status == HCI_SUCCESS) {
+      result.status = BTM_SUCCESS;
+
+      STREAM_TO_UINT16(handle, p);
+
+      STREAM_TO_UINT16(result.automatic_flush_timeout, p);
+      BTM_TRACE_DEBUG(
+          "BTM Automatic Flush Timeout Complete: timeout %u, hci status 0x%02x",
+          result.automatic_flush_timeout, result.hci_status);
+
+      /* Search through the list of active channels for the correct BD Addr */
+      for (uint16_t index = 0; index < MAX_L2CAP_LINKS; index++, p_acl_cb++) {
+        if ((p_acl_cb->in_use) && (handle == p_acl_cb->hci_handle)) {
+          result.rem_bda = p_acl_cb->remote_addr;
+          break;
+        }
+      }
+    } else {
+      result.status = BTM_ERR_PROCESSING;
+    }
+
+    (*p_cb)(&result);
+  }
+}
+
+/*******************************************************************************
+ *
  * Function         btm_read_link_quality_timeout
  *
  * Description      Callback when reading the link quality times out.
@@ -2262,10 +2369,8 @@ void btm_read_link_quality_timeout(UNUSED_ATTR void* data) {
  ******************************************************************************/
 void btm_read_link_quality_complete(uint8_t* p) {
   tBTM_CMPL_CB* p_cb = btm_cb.devcb.p_link_qual_cmpl_cb;
-  tBTM_LINK_QUALITY_RESULTS results;
-  uint16_t handle;
+  tBTM_LINK_QUALITY_RESULT result;
   tACL_CONN* p_acl_cb = &btm_cb.acl_db[0];
-  uint16_t index;
 
   BTM_TRACE_DEBUG("%s", __func__);
   alarm_cancel(btm_cb.devcb.read_link_quality_timer);
@@ -2273,29 +2378,31 @@ void btm_read_link_quality_complete(uint8_t* p) {
 
   /* If there was a registered callback, call it */
   if (p_cb) {
-    STREAM_TO_UINT8(results.hci_status, p);
+    STREAM_TO_UINT8(result.hci_status, p);
 
-    if (results.hci_status == HCI_SUCCESS) {
-      results.status = BTM_SUCCESS;
+    if (result.hci_status == HCI_SUCCESS) {
+      uint16_t handle;
+      result.status = BTM_SUCCESS;
 
       STREAM_TO_UINT16(handle, p);
 
-      STREAM_TO_UINT8(results.link_quality, p);
+      STREAM_TO_UINT8(result.link_quality, p);
       BTM_TRACE_DEBUG(
           "BTM Link Quality Complete: Link Quality %d, hci status 0x%02x",
-          results.link_quality, results.hci_status);
+          result.link_quality, result.hci_status);
 
       /* Search through the list of active channels for the correct BD Addr */
-      for (index = 0; index < MAX_L2CAP_LINKS; index++, p_acl_cb++) {
+      for (uint16_t index = 0; index < MAX_L2CAP_LINKS; index++, p_acl_cb++) {
         if ((p_acl_cb->in_use) && (handle == p_acl_cb->hci_handle)) {
-          results.rem_bda = p_acl_cb->remote_addr;
+          result.rem_bda = p_acl_cb->remote_addr;
           break;
         }
       }
-    } else
-      results.status = BTM_ERR_PROCESSING;
+    } else {
+      result.status = BTM_ERR_PROCESSING;
+    }
 
-    (*p_cb)(&results);
+    (*p_cb)(&result);
   }
 }
 
@@ -2326,8 +2433,9 @@ tBTM_STATUS btm_remove_acl(const RawAddress& bd_addr, tBT_TRANSPORT transport) {
     if (hci_handle != 0xFFFF && p_dev_rec &&
         p_dev_rec->sec_state != BTM_SEC_STATE_DISCONNECTING) {
       btsnd_hcic_disconnect(hci_handle, HCI_ERR_PEER_USER);
-    } else
+    } else {
       status = BTM_UNKNOWN_ADDR;
+    }
   }
 
   return status;
@@ -2419,8 +2527,9 @@ void btm_acl_resubmit_page(void) {
     memcpy(btm_cb.connecting_dc, p_dev_rec->dev_class, DEV_CLASS_LEN);
 
     btu_hcif_send_cmd(LOCAL_BR_EDR_CONTROLLER_ID, p_buf);
-  } else
+  } else {
     btm_cb.paging = false;
+  }
 }
 
 /*******************************************************************************
@@ -2500,8 +2609,9 @@ bool btm_acl_notif_conn_collision(const RawAddress& bda) {
     evt_data.conn.handle = BTM_INVALID_HCI_HANDLE;
     (*btm_cb.p_bl_changed_cb)(&evt_data);
     return true;
-  } else
+  } else {
     return false;
+  }
 }
 
 /*******************************************************************************
