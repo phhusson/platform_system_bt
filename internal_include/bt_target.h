@@ -32,6 +32,9 @@
 #ifdef HAS_BDROID_BUILDCFG
 #include "bdroid_buildcfg.h"
 #endif
+#ifndef BTM_BYPASS_EXTRA_ACL_SETUP
+#define BTM_BYPASS_EXTRA_ACL_SETUP TRUE
+#endif
 
 #include "bt_types.h" /* This must be defined AFTER buildcfg.h */
 
