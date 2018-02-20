@@ -4356,15 +4356,15 @@ void btm_sec_connected(const RawAddress& bda, uint16_t handle, uint8_t status,
   if (p_acl_cb) {
 /* whatever is in btm_establish_continue() without reporting the BTM_BL_CONN_EVT
  * event */
-#if (BTM_BYPASS_EXTRA_ACL_SETUP == FALSE)
-    /* For now there are a some devices that do not like sending */
-    /* commands events and data at the same time. */
-    /* Set the packet types to the default allowed by the device */
-    btm_set_packet_types(p_acl_cb, btm_cb.btm_acl_pkt_types_supported);
+    if(!BTM_BYPASS_EXTRA_ACL_SETUP) {
+      /* For now there are a some devices that do not like sending */
+      /* commands events and data at the same time. */
+      /* Set the packet types to the default allowed by the device */
+      btm_set_packet_types(p_acl_cb, btm_cb.btm_acl_pkt_types_supported);
 
-    if (btm_cb.btm_def_link_policy)
-      BTM_SetLinkPolicy(p_acl_cb->remote_addr, &btm_cb.btm_def_link_policy);
-#endif
+      if (btm_cb.btm_def_link_policy)
+        BTM_SetLinkPolicy(p_acl_cb->remote_addr, &btm_cb.btm_def_link_policy);
+    }
   }
   btm_acl_created(bda, p_dev_rec->dev_class, p_dev_rec->sec_bd_name, handle,
                   HCI_ROLE_SLAVE, BT_TRANSPORT_BR_EDR);
