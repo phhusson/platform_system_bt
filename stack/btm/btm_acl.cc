@@ -1184,17 +1184,17 @@ void btm_read_remote_ext_features_failed(uint8_t status, uint16_t handle) {
 void btm_establish_continue(tACL_CONN* p_acl_cb) {
   tBTM_BL_EVENT_DATA evt_data;
   BTM_TRACE_DEBUG("btm_establish_continue");
-#if (BTM_BYPASS_EXTRA_ACL_SETUP == FALSE)
-  if (p_acl_cb->transport == BT_TRANSPORT_BR_EDR) {
-    /* For now there are a some devices that do not like sending */
-    /* commands events and data at the same time. */
-    /* Set the packet types to the default allowed by the device */
-    btm_set_packet_types(p_acl_cb, btm_cb.btm_acl_pkt_types_supported);
+  if (!BTM_BYPASS_EXTRA_ACL_SETUP) {
+    if (p_acl_cb->transport == BT_TRANSPORT_BR_EDR) {
+      /* For now there are a some devices that do not like sending */
+      /* commands events and data at the same time. */
+      /* Set the packet types to the default allowed by the device */
+      btm_set_packet_types(p_acl_cb, btm_cb.btm_acl_pkt_types_supported);
 
-    if (btm_cb.btm_def_link_policy)
-      BTM_SetLinkPolicy(p_acl_cb->remote_addr, &btm_cb.btm_def_link_policy);
+      if (btm_cb.btm_def_link_policy)
+        BTM_SetLinkPolicy(p_acl_cb->remote_addr, &btm_cb.btm_def_link_policy);
+    }
   }
-#endif
   if (p_acl_cb->link_up_issued) {
     BTM_TRACE_ERROR("%s: Already link is up ", __func__);
     return;
