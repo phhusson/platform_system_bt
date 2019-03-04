@@ -27,6 +27,8 @@
 #include "hcimsgs.h"
 #include "osi/include/log.h"
 
+#include <cutils/properties.h>
+
 static const command_opcode_t NO_OPCODE_CHECKING = 0;
 
 static const allocator_t* buffer_allocator;
@@ -123,6 +125,33 @@ static void parse_read_local_extended_features_response(
   STREAM_TO_ARRAY(feature_pages[*page_number_ptr].as_array, stream,
                   (int)sizeof(bt_device_features_t));
 
+  int ijk;
+  for (ijk = 0; ijk < ((int)sizeof(bt_device_features_t)); ijk++) LOG_DEBUG(LOG_TAG, "supported feature 0x%x is 0x%x", ijk, feature_pages[*page_number_ptr].as_array[ijk]);
+
+  char unsupport_bitmask_str[PROPERTY_VALUE_MAX];
+  property_get("persist.sys.bt.unsupport.features", unsupport_bitmask_str, "0");
+
+  unsigned int len = strlen(unsupport_bitmask_str);
+  uint8_t unsupport_bitmask[8] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
+  unsigned int c;
+
+  for (c = 0; c < len; c++) {
+    if (unsupport_bitmask_str[c] == '1') {
+      unsupport_bitmask[c/8] = ~ ( (1 << c%8) | ~ unsupport_bitmask[c/8] ); // The logic here is hard to represent in C(++), basically we do a bitwise AND for the bit we are on now. But C(++) pads with 0s so we end up 0ing too much.
+    } else if (unsupport_bitmask_str[c] != '0') {
+      LOG_ERROR(LOG_TAG, "invalid characters in bitmask; skipping %c", unsupport_bitmask_str[c]);
+      goto out;
+    }
+  }
+
+
+  for (c = 0; c < ((int)sizeof(bt_device_features_t)); c++)
+    feature_pages[*page_number_ptr].as_array[c] &= unsupport_bitmask[c];
+  LOG_DEBUG(LOG_TAG, "generated bitmask 0x%x%x%x%x%x%x%x%x from prop persist.sys.bt.unsupport.features", unsupport_bitmask[0], unsupport_bitmask[1], unsupport_bitmask[2], unsupport_bitmask[3], unsupport_bitmask[4], unsupport_bitmask[5], unsupport_bitmask[6], unsupport_bitmask[7]);
+out:
+  for (ijk = 0; ijk < ((int)sizeof(bt_device_features_t)); ijk++) LOG_ERROR(LOG_TAG, "supported feature 0x%x is 0x%x", ijk, feature_pages[*page_number_ptr].as_array[ijk]);
+  LOG_DEBUG(LOG_TAG, "supported_features array done");
+
   buffer_allocator->free(response);
 }
 
@@ -156,6 +185,32 @@ static void parse_ble_read_supported_states_response(
   CHECK(stream != NULL);
   STREAM_TO_ARRAY(supported_states, stream, (int)supported_states_size);
 
+  int ijk;
+  for (ijk = 0; ijk < ((int)supported_states_size); ijk++) LOG_DEBUG(LOG_TAG, "supported state 0x%x is 0x%x", ijk, supported_states[ijk]);
+
+  char unsupport_bitmask_str[PROPERTY_VALUE_MAX];
+  property_get("persist.sys.bt.unsupport.states", unsupport_bitmask_str, "0");
+
+  unsigned int len = strlen(unsupport_bitmask_str);
+  uint8_t unsupport_bitmask[8] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
+  unsigned int c;
+
+  for (c = 0; c < len; c++) {
+    if (unsupport_bitmask_str[c] == '1') {
+      unsupport_bitmask[c/8] = ~ ( (1 << c%8) | ~ unsupport_bitmask[c/8] ); // The logic here is hard to represent in C(++), basically we do a bitwise AND for the bit we are on now. But C(++) pads with 0s so we end up 0ing too much.
+    } else if (unsupport_bitmask_str[c] != '0') {
+      LOG_ERROR(LOG_TAG, "invalid characters in bitmask; skipping %c", unsupport_bitmask_str[c]);
+      goto out;
+    }
+  }
+
+
+  for (c = 0; c < supported_states_size; c++)
+    supported_states[c] &= unsupport_bitmask[c];
+  LOG_DEBUG(LOG_TAG, "generated bitmask 0x%x%x%x%x%x%x%x%x from prop persist.sys.bt.unsupport.states", unsupport_bitmask[0], unsupport_bitmask[1], unsupport_bitmask[2], unsupport_bitmask[3], unsupport_bitmask[4], unsupport_bitmask[5], unsupport_bitmask[6], unsupport_bitmask[7]);
+out:
+  for (ijk = 0; ijk < ((int)supported_states_size); ijk++) LOG_ERROR(LOG_TAG, "supported state 0x%x is 0x%x", ijk, supported_states[ijk]);
+  LOG_DEBUG(LOG_TAG, "supported_states array done");
   buffer_allocator->free(response);
 }
 
