@@ -223,7 +223,7 @@ static void parse_ble_read_local_supported_features_response(
   STREAM_TO_ARRAY(supported_features->as_array, stream,
                   (int)sizeof(bt_device_features_t));
   int ijk;
-  for (ijk = 0; ijk < ((int)sizeof(bt_device_features_t)); ijk++) LOG_DEBUG(LOG_TAG, "supported feature 0x%x is 0x%x", ijk, supported_states[ijk]);
+  for (ijk = 0; ijk < ((int)sizeof(bt_device_features_t)); ijk++) LOG_DEBUG(LOG_TAG, "supported feature 0x%x is 0x%x", ijk, supported_features->as_array[ijk]);
 
   char unsupport_bitmask_str[PROPERTY_VALUE_MAX];
   property_get("persist.sys.bt.unsupport.stdfeatures", unsupport_bitmask_str, "0");
@@ -243,10 +243,10 @@ static void parse_ble_read_local_supported_features_response(
 
 
   for (c = 0; c < sizeof(bt_device_features_t); c++)
-    supported_features[c] &= unsupport_bitmask[c];
+    supported_features->as_array[c] &= unsupport_bitmask[c];
   LOG_DEBUG(LOG_TAG, "generated bitmask 0x%x%x%x%x%x%x%x%x from prop persist.sys.bt.unsupport.stdfeatures", unsupport_bitmask[0], unsupport_bitmask[1], unsupport_bitmask[2], unsupport_bitmask[3], unsupport_bitmask[4], unsupport_bitmask[5], unsupport_bitmask[6], unsupport_bitmask[7]);
 out:
-  for (ijk = 0; ijk < ((int)sizeof(bt_device_features_t)); ijk++) LOG_ERROR(LOG_TAG, "supported feature 0x%x is 0x%x", ijk, supported_features[ijk]);
+  for (ijk = 0; ijk < ((int)sizeof(bt_device_features_t)); ijk++) LOG_ERROR(LOG_TAG, "supported feature 0x%x is 0x%x", ijk, supported_features->as_array[ijk]);
   LOG_DEBUG(LOG_TAG, "supported_features array done");
 
   buffer_allocator->free(response);
