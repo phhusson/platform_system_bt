@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 The Android Open Source Project
+ * Copyright 2020 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,26 +15,26 @@
  */
 #pragma once
 
+#include <array>
 #include <memory>
 #include <string>
 
 #include "module.h"
-#include "shim/idiscoverability.h"
 
 namespace bluetooth {
 namespace shim {
 
-class Discoverability : public bluetooth::Module, public bluetooth::shim::IDiscoverability {
+using ReadRemoteNameDbCallback = std::function<void(std::string string_address, bool success)>;
+
+class NameDb : public bluetooth::Module {
  public:
-  void StartGeneralDiscoverability() override;
-  void StartLimitedDiscoverability() override;
-  void StopDiscoverability() override;
+  void ReadRemoteNameDbRequest(std::string string_address, ReadRemoteNameDbCallback callback);
 
-  bool IsGeneralDiscoverabilityEnabled() const override;
-  bool IsLimitedDiscoverabilityEnabled() const override;
+  bool IsNameCached(std::string string_address) const;
+  std::array<uint8_t, 248> ReadCachedRemoteName(std::string string_address) const;
 
-  Discoverability() = default;
-  ~Discoverability() = default;
+  NameDb() = default;
+  ~NameDb() = default;
 
   static const ModuleFactory Factory;
 
@@ -47,7 +47,7 @@ class Discoverability : public bluetooth::Module, public bluetooth::shim::IDisco
  private:
   struct impl;
   std::unique_ptr<impl> pimpl_;
-  DISALLOW_COPY_AND_ASSIGN(Discoverability);
+  DISALLOW_COPY_AND_ASSIGN(NameDb);
 };
 
 }  // namespace shim
