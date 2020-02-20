@@ -20,7 +20,6 @@
 #include "att/att_module.h"
 #include "hal/hci_hal.h"
 #include "hci/acl_manager.h"
-#include "hci/classic_security_manager.h"
 #include "hci/le_advertising_manager.h"
 #include "hci/le_scanning_manager.h"
 #include "l2cap/classic/l2cap_classic_module.h"
@@ -36,17 +35,10 @@
 #include "os/thread.h"
 #include "security/security_module.h"
 #include "shim/advertising.h"
-#include "shim/connectability.h"
 #include "shim/dumpsys.h"
 #include "shim/hci_layer.h"
 #include "shim/inquiry.h"
 #include "shim/l2cap.h"
-#include "shim/name.h"
-#include "shim/name_db.h"
-#include "shim/page.h"
-#include "shim/scanning.h"
-#include "shim/security.h"
-#include "shim/storage.h"
 #include "stack_manager.h"
 #include "storage/legacy.h"
 
@@ -79,15 +71,9 @@ struct bluetooth::shim::Stack::impl {
     modules.add<::bluetooth::security::SecurityModule>();
     modules.add<::bluetooth::storage::LegacyModule>();
     modules.add<::bluetooth::shim::Advertising>();
-    modules.add<::bluetooth::shim::Connectability>();
     modules.add<::bluetooth::shim::Dumpsys>();
     modules.add<::bluetooth::shim::Inquiry>();
-    modules.add<::bluetooth::shim::Name>();
     modules.add<::bluetooth::shim::L2cap>();
-    modules.add<::bluetooth::shim::Page>();
-    modules.add<::bluetooth::shim::Scanning>();
-    modules.add<::bluetooth::shim::Security>();
-    modules.add<::bluetooth::shim::Storage>();
 
     stack_thread_ = new Thread("gd_stack_thread", Thread::Priority::NORMAL);
     stack_manager_.StartUp(&modules, stack_thread_);
