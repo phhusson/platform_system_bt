@@ -16,19 +16,21 @@
 
 #include "main/shim/entry.h"
 #include "osi/include/future.h"
+#include "osi/include/log.h"
 
 #include "hci/controller.h"
+#include "hci/hci_layer.h"
+#include "hci/le_advertising_manager.h"
 #include "hci/le_scanning_manager.h"
+#include "main/shim/btm.h"
 #include "neighbor/connectability.h"
 #include "neighbor/discoverability.h"
+#include "neighbor/inquiry.h"
 #include "neighbor/name.h"
 #include "neighbor/page.h"
 #include "os/handler.h"
 #include "security/security_module.h"
-#include "shim/advertising.h"
 #include "shim/dumpsys.h"
-#include "shim/hci_layer.h"
-#include "shim/inquiry.h"
 #include "shim/l2cap.h"
 #include "shim/stack.h"
 #include "stack_manager.h"
@@ -36,8 +38,11 @@
 
 using bluetooth::shim::GetGabeldorscheStack;
 
+extern bluetooth::shim::Btm shim_btm;
+
 future_t* bluetooth::shim::StartGabeldorscheStack() {
   GetGabeldorscheStack()->Start();
+  shim_btm.RegisterInquiryCallbacks();
   return (future_t*)nullptr;
 }
 
@@ -50,10 +55,10 @@ bluetooth::os::Handler* bluetooth::shim::GetGdShimHandler() {
   return bluetooth::shim::GetDumpsys()->GetGdShimHandler();
 }
 
-bluetooth::shim::Advertising* bluetooth::shim::GetAdvertising() {
+bluetooth::hci::LeAdvertisingManager* bluetooth::shim::GetAdvertising() {
   return GetGabeldorscheStack()
       ->GetStackManager()
-      ->GetInstance<bluetooth::shim::Advertising>();
+      ->GetInstance<bluetooth::hci::LeAdvertisingManager>();
 }
 
 bluetooth::hci::Controller* bluetooth::shim::GetController() {
@@ -82,16 +87,16 @@ bluetooth::shim::Dumpsys* bluetooth::shim::GetDumpsys() {
       ->GetInstance<bluetooth::shim::Dumpsys>();
 }
 
-bluetooth::shim::Inquiry* bluetooth::shim::GetInquiry() {
+bluetooth::neighbor::InquiryModule* bluetooth::shim::GetInquiry() {
   return GetGabeldorscheStack()
       ->GetStackManager()
-      ->GetInstance<bluetooth::shim::Inquiry>();
+      ->GetInstance<bluetooth::neighbor::InquiryModule>();
 }
 
-bluetooth::shim::HciLayer* bluetooth::shim::GetHciLayer() {
+bluetooth::hci::HciLayer* bluetooth::shim::GetHciLayer() {
   return GetGabeldorscheStack()
       ->GetStackManager()
-      ->GetInstance<bluetooth::shim::HciLayer>();
+      ->GetInstance<bluetooth::hci::HciLayer>();
 }
 
 bluetooth::shim::L2cap* bluetooth::shim::GetL2cap() {
