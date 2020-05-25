@@ -973,9 +973,14 @@ bt_status_t BtifAvSource::Init(
   osi_property_get("ro.bluetooth.a2dp_offload.supported", value_sup, "false");
   osi_property_get("persist.bluetooth.a2dp_offload.disabled", value_dis,
                    "false");
+  char value_phh[PROPERTY_VALUE_MAX] = {'\0'};
+  osi_property_get("persist.sys.phh.disable_a2dp_offload", value_phh, "false");
   a2dp_offload_enabled_ =
       (strcmp(value_sup, "true") == 0) && (strcmp(value_dis, "false") == 0);
-  BTIF_TRACE_DEBUG("a2dp_offload.enable = %d", a2dp_offload_enabled_);
+  if(strcmp(value_phh, "true") == 0)
+      a2dp_offload_enabled_ = false;
+
+  LOG_ERROR("a2dp_offload.enable = %s", a2dp_offload_enabled_ ? "on" : "off");
 
   callbacks_ = callbacks;
   if (a2dp_offload_enabled_) {
