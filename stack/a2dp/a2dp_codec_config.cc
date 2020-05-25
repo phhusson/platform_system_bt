@@ -571,13 +571,18 @@ bool A2dpCodecs::init() {
   char* tok = NULL;
   char* tmp_token = NULL;
   bool offload_codec_support[BTAV_A2DP_CODEC_INDEX_MAX] = {false};
-  char value_sup[PROPERTY_VALUE_MAX], value_dis[PROPERTY_VALUE_MAX];
+  char value_sup[PROPERTY_VALUE_MAX], value_dis[PROPERTY_VALUE_MAX], value_phh[PROPERTY_VALUE_MAX];
 
   osi_property_get("ro.bluetooth.a2dp_offload.supported", value_sup, "false");
   osi_property_get("persist.bluetooth.a2dp_offload.disabled", value_dis,
                    "false");
+  osi_property_get("persist.sys.phh.disable_a2dp_offload", value_phh, "false");
   a2dp_offload_status =
       (strcmp(value_sup, "true") == 0) && (strcmp(value_dis, "false") == 0);
+  if(strcmp(value_phh, "true") == 0)
+      a2dp_offload_status = false;
+
+  LOG_ERROR("Got a2dp offload status %s", a2dp_offload_status ? "on" : "off");
 
   if (a2dp_offload_status) {
     char value_cap[PROPERTY_VALUE_MAX];
@@ -666,7 +671,7 @@ bool A2dpCodecs::init() {
     }
   }
 
-  return (!ordered_source_codecs_.empty() && !ordered_sink_codecs_.empty());
+  return (!ordered_source_codecs_.empty() && !ordered_sink_codecs_.empty()) && !a2dp_offload_status;
 }
 
 A2dpCodecConfig* A2dpCodecs::findSourceCodecConfig(
