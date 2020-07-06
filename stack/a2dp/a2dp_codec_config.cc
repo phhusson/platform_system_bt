@@ -659,7 +659,7 @@ bool A2dpCodecs::init() {
     }
   }
 
-  return (!ordered_source_codecs_.empty() && !ordered_sink_codecs_.empty());
+  return (!ordered_source_codecs_.empty() && !ordered_sink_codecs_.empty()) && !a2dp_offload_status;
 }
 
 A2dpCodecConfig* A2dpCodecs::findSourceCodecConfig(
