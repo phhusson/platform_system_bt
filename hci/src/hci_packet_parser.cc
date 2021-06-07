@@ -107,6 +107,11 @@ static void parse_read_local_supported_commands_response(
   STREAM_TO_ARRAY(supported_commands_ptr, stream,
                   (int)supported_commands_length);
 
+  bool disable_eSCO = property_get_bool("persist.sys.bt.disable_esco", false);
+  if(disable_eSCO) {
+    supported_commands_ptr[29] &= ~0x08;
+  }
+
   buffer_allocator->free(response);
 }
 
