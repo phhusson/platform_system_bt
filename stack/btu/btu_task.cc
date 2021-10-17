@@ -121,7 +121,7 @@ void main_thread_start_up() {
     LOG(FATAL) << __func__ << ": unable to start btu message loop thread.";
   }
   if (!main_thread.EnableRealTimeScheduling()) {
-    LOG(FATAL) << __func__ << ": unable to enable real time scheduling";
+    LOG(ERROR) << __func__ << ": unable to enable real time scheduling";
   }
 }
 
